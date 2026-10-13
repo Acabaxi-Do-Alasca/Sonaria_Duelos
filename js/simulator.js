@@ -32,7 +32,7 @@ function normalize(o) {
 // ---------- Pelúcias: exibição ----------
 const plushInfo = n => (typeof PLUSHIE_INFO !== "undefined" && PLUSHIE_INFO[n]) || {};
 const plushImg = n => plushInfo(n).img
-  ? `<img src="${plushInfo(n).img}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'pimg-fallback',textContent:'${n[0]}'}))">`
+  ? `<img src="${plushInfo(n).img}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'pimg-fallback',textContent:'${n[0]}'}))">`
   : `<span class="pimg-fallback">${n[0]}</span>`;
 const PCT = v => `${v > 0 ? "+" : "−"}${String(+(Math.abs(v) * 100).toFixed(1)).replace(".", ",")}%`;
 const STAT_PT = { dmg: "dano", weight: "peso", regen: "regen", cd: "recarga", hp: "vida" };

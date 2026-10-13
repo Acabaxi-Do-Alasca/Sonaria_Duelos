@@ -34,6 +34,8 @@ Este comando baixa da wiki oficial os atributos e imagens das criaturas e as rar
 python scripts/atualizar_dados.py
 ```
 
+As imagens ficam salvas em `img/criaturas` e `img/pelucias`, em WebP. Assim o site não depende do servidor da Fandom, que bloqueia imagens carregadas por outros sites. O script reaproveita as imagens já baixadas. Se a Fandom limitar os downloads, é só rodar o comando de novo para completar. Ele usa o Pillow (`pip install pillow`).
+
 ## Créditos
 
 Os atributos e imagens vêm da [wiki oficial de Creatures of Sonaria](https://creatures-of-sonaria-official.fandom.com/wiki/Creature_Stats_List) (CC BY-SA). Este é um projeto de fã, sem afiliação com o jogo. Os valores que a wiki não documenta são estimados e aparecem marcados com "≈" no site.

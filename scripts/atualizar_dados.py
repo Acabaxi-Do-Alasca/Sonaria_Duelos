@@ -7,8 +7,10 @@ Uso:  python scripts/atualizar_dados.py
 import json
 import re
 import sys
+import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -152,15 +154,68 @@ def parse(lua):
     return rows
 
 
+ROOT = OUT.parent.parent
+IMG_HEADERS = {
+    # A Fandom só entrega a imagem quando o pedido vem "de dentro" da wiki (Referer)
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36",
+    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    "Referer": "https://creatures-of-sonaria-official.fandom.com/",
+}
+
+
+def slug(name):
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def download_images(items, folder):
+    """Baixa {nome: url} para img/<folder>/<slug>.webp e devolve {nome: caminho local}.
+    Imagens já baixadas são reaproveitadas (apague a pasta para baixar tudo de novo)."""
+    dest = ROOT / "img" / folder
+    dest.mkdir(parents=True, exist_ok=True)
+
+    def get(item):
+        name, url = item
+        path = dest / f"{slug(name)}.webp"
+        if path.exists() and path.stat().st_size > 0:
+            return name, path
+        for attempt in range(3):
+            try:
+                req = urllib.request.Request(url, headers=IMG_HEADERS)
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    data, ctype = r.read(), r.headers.get("Content-Type", "")
+                if not ctype.startswith("image/"):
+                    raise ValueError(ctype)
+                if ctype != "image/webp":  # garante WebP mesmo que a Fandom devolva PNG
+                    from io import BytesIO
+                    from PIL import Image
+                    buf = BytesIO()
+                    Image.open(BytesIO(data)).save(buf, "WEBP", quality=85)
+                    data = buf.getvalue()
+                path.write_bytes(data)
+                return name, path
+            except Exception:
+                time.sleep(1 + attempt * 2)
+        return name, None
+
+    out = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        for name, path in pool.map(get, [(n, u) for n, u in items.items() if u]):
+            if path:
+                out[name] = path.relative_to(ROOT).as_posix()
+    return out
+
+
 def main():
     lua = fetch_lua()
     rows = parse(lua)
     if len(rows) < 100:
         sys.exit(f"Algo deu errado: só {len(rows)} criaturas lidas.")
     imgs = fetch_images([r["name"] for r in rows])
+    local = download_images(imgs, "criaturas")
     for r in rows:
-        r["img"] = imgs.get(r["name"], "")
-    print(f"Imagens encontradas: {len(imgs)}/{len(rows)}")
+        # usa a cópia local; se o download falhar, cai para o link da wiki
+        r["img"] = local.get(r["name"]) or imgs.get(r["name"], "")
+    print(f"Imagens: {len(local)}/{len(rows)} baixadas para img/criaturas")
     js = ("// Gerado por scripts/atualizar_dados.py a partir da wiki oficial de Creatures of Sonaria.\n"
           f"// Atualizado em {datetime.now():%Y-%m-%d}. Não edite à mão — rode o script novamente.\n"
           f"const CREATURES_UPDATED = \"{datetime.now():%Y-%m-%d}\";\n"
@@ -169,6 +224,10 @@ def main():
     print(f"{len(rows)} criaturas salvas em {OUT}")
 
     plush = fetch_plushies()
+    local = download_images({n: p["img"] for n, p in plush.items()}, "pelucias")
+    for n, p in plush.items():
+        p["img"] = local.get(n) or p["img"]
+    print(f"Pelúcias: {len(local)}/{len(plush)} imagens baixadas para img/pelucias")
     out2 = OUT.parent / "plushies-data.js"
     out2.write_text("// Gerado por scripts/atualizar_dados.py (raridade e imagem das pelúcias, wiki oficial).\n"
                     "const PLUSHIE_INFO = " + json.dumps(plush, ensure_ascii=False, separators=(",", ":")) + ";\n",

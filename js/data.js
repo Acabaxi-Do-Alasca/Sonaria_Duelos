@@ -64,7 +64,7 @@ function avatarHTML(c, style = "") {
   const h = hue(c.name);
   const initials = c.name.replace(/[^A-Za-zÀ-ÿ ]/g, "").split(" ").filter(Boolean).map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const img = c.img
-    ? `<img class="av-img" src="${c.img}" alt="${c.name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+    ? `<img class="av-img" src="${c.img}" alt="${c.name}" loading="lazy" onerror="this.remove()">`
     : "";
   return `<div class="avatar" style="background:radial-gradient(circle at 50% 65%,hsl(${h} 28% 30%),hsl(${(h + 30) % 360} 25% 13%));${style}">
     <span class="av-initials">${initials}</span>${img}</div>`;
