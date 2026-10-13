@@ -3,32 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sonaria Duelos — calculadora de face tank</title>
+  <meta name="i18n-title" content="title.home">
+  <title>Sonaria Duelos</title>
   <script>try { const t = localStorage.getItem("sd-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body data-page="home">
   <main class="container">
     <section class="home-hero">
       <div>
-        <span class="kicker">Creatures of Sonaria · calculadora de duelos</span>
-        <h1>Quem aguenta mais <i>no face tank?</i></h1>
-        <p class="lead">Escolha duas criaturas, monte a build de cada uma (veneração, traits, pelúcias, buffs) e veja segundo a segundo quem cai primeiro — com os atributos oficiais da wiki.</p>
+        <span class="kicker" data-i18n="home.kicker"></span>
+        <h1><span data-i18n="home.h1a"></span> <i data-i18n="home.h1b"></i></h1>
+        <p class="lead" data-i18n="home.lead"></p>
         <div class="hero-actions">
-          <a href="simulator.html" class="btn btn-primary">Montar um duelo</a>
-          <a href="creatures.html" class="btn btn-ghost">Abrir o bestiário</a>
+          <a href="simulator.html" class="btn btn-primary" data-i18n="home.ctaSim"></a>
+          <a href="creatures.html" class="btn btn-ghost" data-i18n="home.ctaBest"></a>
         </div>
         <div class="facts">
-          <div><b id="f-count">—</b><span>criaturas</span></div>
-          <div><b>35</b><span>pelúcias de combate</span></div>
-          <div><b>22</b><span>habilidades ativas</span></div>
+          <div><b id="f-count">—</b><span data-i18n="home.factCreatures"></span></div>
+          <div><b>35</b><span data-i18n="home.factPlush"></span></div>
+          <div><b>23</b><span data-i18n="home.factActives"></span></div>
         </div>
       </div>
 
       <aside class="feature-duel" id="feature">
-        <header><span class="kicker">Duelo em destaque</span><button class="btn btn-ghost" id="reroll" style="padding:6px 10px;font-size:13px">↻ Outro</button></header>
+        <header><span class="kicker" data-i18n="home.featured"></span><button class="btn btn-ghost" id="reroll" style="padding:6px 10px;font-size:13px" data-i18n="home.reroll"></button></header>
         <div class="fd-pair" id="fd-pair"></div>
         <div class="fd-result" id="fd-result"></div>
       </aside>
@@ -36,35 +37,42 @@
 
     <section class="band">
       <div class="band-head">
-        <div><span class="kicker">Recém-chegadas</span><h2>Criaturas novas no jogo</h2></div>
-        <a href="creatures.html" class="btn btn-ghost">Ver todas →</a>
+        <div><span class="kicker" data-i18n="home.newKicker"></span><h2 data-i18n="home.newTitle"></h2></div>
+        <a href="creatures.html" class="btn btn-ghost" data-i18n="home.seeAll"></a>
       </div>
       <div class="new-grid" id="new-grid"></div>
     </section>
 
     <section class="band">
-      <div class="band-head"><div><span class="kicker">Passo a passo</span><h2>Como montar um duelo</h2></div></div>
+      <div class="band-head"><div><span class="kicker" data-i18n="home.stepsKicker"></span><h2 data-i18n="home.stepsTitle"></h2></div></div>
       <ol class="steps">
-        <li><h3>Escolha os lados</h3><p>Lado âmbar e lado jade. Busque por nome ou filtre por tier, tipo e dieta.</p></li>
-        <li><h3>Monte a build</h3><p>Ancião, veneração, traits com ascensões, até duas pelúcias, buffs e habilidades ativas.</p></li>
-        <li><h3>Leia o relatório</h3><p>Vencedor, tempo, dano por fonte, gráfico de vida e o registro completo do duelo.</p></li>
+        <li><h3 data-i18n="home.step1"></h3><p data-i18n="home.step1.d"></p></li>
+        <li><h3 data-i18n="home.step2"></h3><p data-i18n="home.step2.d"></p></li>
+        <li><h3 data-i18n="home.step3"></h3><p data-i18n="home.step3.d"></p></li>
       </ol>
     </section>
 
     <section class="band">
       <div class="what">
-        <div><h3>📐 Fórmulas da wiki</h3><p>Dano pelo peso <code>(1 + min(peso/alvo, 3)) / 2</code>, ticks de 3s, sangramento, veneno, queimadura e sopros com os multiplicadores oficiais.</p></div>
-        <div><h3>🧪 Tudo que muda a luta</h3><p>Hunker, Guilt, Unbreakable, First Strike, bloqueios, Warden's Rage, Shadow Barrage, Life Leech, Reflect e mais.</p></div>
-        <div><h3>🎲 Chance real</h3><p>120 simulações por confronto variando quem morde primeiro e o tempo da primeira mordida.</p></div>
+        <div><h3 data-i18n="home.what1"></h3><p data-i18n-html="home.what1.d"></p></div>
+        <div><h3 data-i18n="home.what2"></h3><p data-i18n="home.what2.d"></p></div>
+        <div><h3 data-i18n="home.what3"></h3><p data-i18n="home.what3.d"></p></div>
       </div>
     </section>
   </main>
 
-  <script src="js/layout.js?v=14"></script>
-  <script src="js/creatures-data.js?v=14"></script>
-  <script src="js/data.js?v=14"></script>
-  <script src="js/mechanics.js?v=14"></script>
-  <script src="js/sim.js?v=14"></script>
+  <script src="js/i18n.js?v=16"></script>
+  <script src="js/lang/pt-BR.js?v=16"></script>
+  <script src="js/lang/pt-PT.js?v=16"></script>
+  <script src="js/lang/en.js?v=16"></script>
+  <script src="js/lang/es.js?v=16"></script>
+  <script src="js/lang/fr.js?v=16"></script>
+  <script src="js/lang/de.js?v=16"></script>
+  <script src="js/layout.js?v=16"></script>
+  <script src="js/creatures-data.js?v=16"></script>
+  <script src="js/data.js?v=16"></script>
+  <script src="js/mechanics.js?v=16"></script>
+  <script src="js/sim.js?v=16"></script>
   <script>
     document.getElementById("f-count").textContent = CREATURES.length;
 
@@ -77,23 +85,25 @@
       let b; do { b = pool[Math.floor(Math.random() * pool.length)]; } while (b === a);
       const slots = [{ creature: a, opts: blankOpts() }, { creature: b, opts: blankOpts() }];
       const r = simulate(slots, { night: false }, a.weight >= b.weight ? 0 : 1, { log: false });
-      const side = (c, k) => `<a class="fd-side" href="simulator.html?c1=${encodeURIComponent(a.name)}&c2=${encodeURIComponent(b.name)}">
+      const href = `simulator.html?c1=${encodeURIComponent(a.name)}&c2=${encodeURIComponent(b.name)}`;
+      const side = (c, k) => `<a class="fd-side" href="${href}">
           ${avatarHTML(c)}<h3 style="color:var(--${k})">${c.name}</h3><small style="color:var(--muted)">Tier ${c.tier} · ${typePt(c.type)}</small></a>`;
       document.getElementById("fd-pair").innerHTML = side(a, "a") + `<span class="fd-x">×</span>` + side(b, "b");
       const w = r.fighters[r.winner];
       document.getElementById("fd-result").innerHTML = r.timeout
-        ? `<span>Empate por tempo</span>`
-        : `<span><b>${w.name}</b> vence em ${r.time.toFixed(1)}s com ${Math.round(Math.max(0, w.hp) / w.maxHp * 100)}% de vida</span>
-           <a class="btn btn-ghost" style="padding:6px 10px;font-size:13px" href="simulator.html?c1=${encodeURIComponent(a.name)}&c2=${encodeURIComponent(b.name)}">Ver relatório →</a>`;
+        ? `<span>${t("rep.draw")}</span>`
+        : `<span>${t("home.featuredResult", { a: `<b>${w.name}</b>`, s: fmtD(r.time, 1), p: Math.round(Math.max(0, w.hp) / w.maxHp * 100) })}</span>
+           <a class="btn btn-ghost" style="padding:6px 10px;font-size:13px" href="${href}">${t("home.seeReport")}</a>`;
     }
     document.getElementById("reroll").onclick = feature;
     feature();
 
     // Novidades
+    const dateFmt = new Intl.DateTimeFormat(LOCALE);
     document.getElementById("new-grid").innerHTML = CREATURES.filter(isNew)
       .sort((a, b) => b.added.localeCompare(a.added))
       .map(c => `<a class="new-item" href="simulator.html?c1=${encodeURIComponent(c.name)}">
-        ${avatarHTML(c)}<h4>${c.name}</h4><small>T${c.tier} · ${typePt(c.type)} · ${c.added.split("-").reverse().join("/")}</small></a>`).join("");
+        ${avatarHTML(c)}<h4>${c.name}</h4><small>T${c.tier} · ${typePt(c.type)} · ${dateFmt.format(new Date(c.added + "T12:00:00"))}</small></a>`).join("");
   </script>
 </body>
 </html>

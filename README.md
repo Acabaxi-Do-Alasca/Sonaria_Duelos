@@ -36,6 +36,22 @@ python scripts/atualizar_dados.py
 
 As imagens ficam salvas em `img/criaturas` e `img/pelucias`, em WebP. Assim o site não depende do servidor da Fandom, que bloqueia imagens carregadas por outros sites. O script reaproveita as imagens já baixadas. Se a Fandom limitar os downloads, é só rodar o comando de novo para completar. Ele usa o Pillow (`pip install pillow`).
 
+## Idiomas
+
+O site está disponível em português do Brasil, português de Portugal, inglês, espanhol, francês e alemão.
+
+- O idioma do navegador é detectado automaticamente.
+- Dá para trocar no seletor do menu, e a escolha fica salva.
+- Os nomes das criaturas, habilidades e pelúcias ficam como no jogo.
+
+Para adicionar um idioma:
+
+1. Copie `js/lang/en.js` para `js/lang/<código>.js` (por exemplo `it.js`) e traduza os textos. Mantenha as variáveis entre chaves, como `{n}` e `{s}`.
+2. Registre o idioma em `LANGS`, no começo de `js/i18n.js`.
+3. Inclua `<script src="js/lang/<código>.js"></script>` nas três páginas, junto dos outros idiomas.
+
+Se faltar algum texto, o site mostra a versão em inglês.
+
 ## Créditos
 
 Os atributos e imagens vêm da [wiki oficial de Creatures of Sonaria](https://creatures-of-sonaria-official.fandom.com/wiki/Creature_Stats_List) (CC BY-SA). Este é um projeto de fã, sem afiliação com o jogo. Os valores que a wiki não documenta são estimados e aparecem marcados com "≈" no site.

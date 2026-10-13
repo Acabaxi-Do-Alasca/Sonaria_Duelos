@@ -1,27 +1,23 @@
 // Utilitários de exibição. Os dados das criaturas ficam em js/creatures-data.js
 // (gerado por scripts/atualizar_dados.py a partir da wiki oficial).
 
-const TYPE_PT = { "Terrestrial": "Terrestre", "Flier": "Voador", "Aquatic": "Aquático", "Semi-Aquatic": "Semi-Aquático", "Glider": "Planador" };
-const DIET_PT = { "Carnivore": "Carnívoro", "Herbivore": "Herbívoro", "Omnivore": "Onívoro", "Photocarnivore": "Fotocarnívoro", "Photovore": "Fotóvoro" };
 const TYPE_ICON = { "Terrestrial": "🦶", "Flier": "🪽", "Aquatic": "🌊", "Semi-Aquatic": "💧", "Glider": "🪁" };
 const DIET_ICON = { "Carnivore": "🥩", "Herbivore": "🌿", "Omnivore": "🍽️", "Photocarnivore": "☀️", "Photovore": "🌞" };
 
 // Status negativos que importam numa luta parada
 const AILMENTS = {
-  bleed:      { pt: "Sangramento", icon: "🩸", key: "Bleed" },
-  poison:     { pt: "Veneno",      icon: "🧪", key: "Poison" },
-  burn:       { pt: "Queimadura",  icon: "🔥", key: "Burn" },
-  frostbite:  { pt: "Congelamento",icon: "❄️", key: "Frostbite" },
-  corrosion:  { pt: "Corrosão",    icon: "🟢", key: "Corrosion" },
-  radiation:  { pt: "Radiação",    icon: "☢️", key: "Radiation" },
-  disease:    { pt: "Doença",      icon: "🦠", key: "Disease" },
-  necropoison:{ pt: "Necroveneno", icon: "💜", key: "Necropoison" },
+  bleed:      { pt: t("ail.bleed"),      key: "Bleed" },
+  poison:     { pt: t("ail.poison"),     key: "Poison" },
+  burn:       { pt: t("ail.burn"),       key: "Burn" },
+  frostbite:  { pt: t("ail.frostbite"),  key: "Frostbite" },
+  corrosion:  { pt: t("ail.corrosion"),  key: "Corrosion" },
+  radiation:  { pt: t("ail.radiation"),  key: "Radiation" },
+  disease:    { pt: t("ail.disease"),    key: "Disease" },
+  necropoison:{ pt: t("ail.necropoison"),key: "Necropoison" },
 };
 
-const typePt = t => TYPE_PT[t] || t;
-const dietPt = d => DIET_PT[d] || d;
-const fmtN = n => Math.round(n).toLocaleString("pt-BR");
-const pct = v => `${Math.round(v * 1000) / 10}%`;
+const typePt = x => t("type." + x);
+const dietPt = d => t("diet." + d);
 
 // Criaturas "novas" = as 12 adicionadas mais recentemente
 const NEW_SET = new Set([...CREATURES].sort((a, b) => b.added.localeCompare(a.added)).slice(0, 12).map(c => c.name));
@@ -71,8 +67,8 @@ function avatarHTML(c, style = "") {
 }
 
 function ailmentBadges(c) {
-  const out = attackAilments(c).map(a => `<span class="badge fx" title="${AILMENTS[a.type].pt} ao morder">${AILMENTS[a.type].pt} ${a.stacks}</span>`);
-  if (c.breath) out.push(`<span class="badge fx" title="${c.breath}">Sopro</span>`);
+  const out = attackAilments(c).map(a => `<span class="badge fx" title="${t("card.onBite", { s: AILMENTS[a.type].pt })}">${AILMENTS[a.type].pt} ${fmtD(a.stacks, 2)}</span>`);
+  if (c.breath) out.push(`<span class="badge fx" title="${c.breath}">${t("card.breath")}</span>`);
   if (c.passives["First Strike"]) out.push(`<span class="badge fx">First Strike</span>`);
   return out.join("");
 }
@@ -81,9 +77,9 @@ function creatureCardHTML(c, idx) {
   const p = powerScore(c), pl = powerLabel(p);
   return `
   <button class="c-card" data-idx="${idx}">
-    ${isNew(c) ? `<span class="badge badge-new card-new">Nova</span>` : ""}
+    ${isNew(c) ? `<span class="badge badge-new card-new">${t("card.new")}</span>` : ""}
     ${avatarHTML(c)}
-    <h3><span>${c.name}</span><span class="power" title="Classe estimada (${p})" style="color:${pl.c};border-color:${pl.c}88">${pl.t}</span></h3>
+    <h3><span>${c.name}</span><span class="power" title="${t("card.class", { n: p })}" style="color:${pl.c};border-color:${pl.c}88">${pl.t}</span></h3>
     <div class="badges">
       <span class="badge tier-${c.tier}">T${c.tier}</span>
       <span class="badge type-badge">${typePt(c.type)}</span>
@@ -91,12 +87,12 @@ function creatureCardHTML(c, idx) {
       ${ailmentBadges(c)}
     </div>
     <div class="stat-grid">
-      <div><small>Vida</small><b>${fmtN(c.hp)}</b></div>
-      <div><small>Dano</small><b>${fmtN(c.dmg)}</b></div>
-      <div><small>Peso</small><b>${fmtN(c.weight)}</b></div>
-      <div><small>Recarga</small><b>${c.cd}s</b></div>
-      <div><small>Regen</small><b>${pct(c.regen)}</b></div>
-      <div><small>Sopro</small><b>${c.breath ? "Sim" : "—"}</b></div>
+      <div><small>${t("lbl.hp")}</small><b>${fmtN(c.hp)}</b></div>
+      <div><small>${t("lbl.dmg")}</small><b>${fmtN(c.dmg)}</b></div>
+      <div><small>${t("lbl.weight")}</small><b>${fmtN(c.weight)}</b></div>
+      <div><small>${t("lbl.cd")}</small><b>${fmtD(c.cd, 2)}s</b></div>
+      <div><small>${t("lbl.regen")}</small><b>${pct(c.regen)}</b></div>
+      <div><small>${t("lbl.breath")}</small><b>${c.breath ? t("yes") : "—"}</b></div>
     </div>
   </button>`;
 }
@@ -111,7 +107,7 @@ function filterCreatures({ q = "", tier = "", type = "", diet = "", sort = "name
     (!diet || c.diet === diet)
   );
   const by = {
-    name: (a, b) => a.c.name.localeCompare(b.c.name),
+    name: (a, b) => a.c.name.localeCompare(b.c.name, LOCALE),
     new: (a, b) => b.c.added.localeCompare(a.c.added),
     tier: (a, b) => b.c.tier - a.c.tier || a.c.name.localeCompare(b.c.name),
     hp: (a, b) => b.c.hp - a.c.hp,
@@ -128,13 +124,13 @@ function filterToolbarHTML(prefix) {
   const tiers = [...new Set(CREATURES.map(c => c.tier))].sort();
   return `
   <div class="toolbar">
-    <input class="input search" id="${prefix}q" placeholder="Buscar entre ${CREATURES.length} criaturas...">
-    <select class="select" id="${prefix}tier"><option value="">Todos os tiers</option>${tiers.map(t => `<option value="${t}">Tier ${t}</option>`).join("")}</select>
-    <select class="select" id="${prefix}type"><option value="">Todos os tipos</option>${types.map(t => `<option value="${t}">${typePt(t)}</option>`).join("")}</select>
-    <select class="select" id="${prefix}diet"><option value="">Todas as dietas</option>${diets.map(t => `<option value="${t}">${dietPt(t)}</option>`).join("")}</select>
+    <input class="input search" id="${prefix}q" placeholder="${t("filter.search", { n: CREATURES.length })}">
+    <select class="select" id="${prefix}tier"><option value="">${t("filter.allTiers")}</option>${tiers.map(x => `<option value="${x}">Tier ${x}</option>`).join("")}</select>
+    <select class="select" id="${prefix}type"><option value="">${t("filter.allTypes")}</option>${types.map(x => `<option value="${x}">${typePt(x)}</option>`).join("")}</select>
+    <select class="select" id="${prefix}diet"><option value="">${t("filter.allDiets")}</option>${diets.map(x => `<option value="${x}">${dietPt(x)}</option>`).join("")}</select>
     <select class="select" id="${prefix}sort">
-      <option value="name">Ordenar: Nome</option><option value="new">Mais recentes</option><option value="tier">Tier</option>
-      <option value="power">Poder</option><option value="hp">Vida</option><option value="dmg">Dano</option><option value="weight">Peso</option>
+      <option value="name">${t("sort.name")}</option><option value="new">${t("sort.new")}</option><option value="tier">Tier</option>
+      <option value="power">${t("sort.power")}</option><option value="hp">${t("lbl.hp")}</option><option value="dmg">${t("lbl.dmg")}</option><option value="weight">${t("lbl.weight")}</option>
     </select>
   </div>`;
 }
@@ -148,11 +144,11 @@ function renderCards(grid, list, batch = 60) {
     shown += slice.length;
     grid.querySelector(".load-more")?.remove();
     if (shown < list.length) {
-      grid.insertAdjacentHTML("beforeend", `<button class="btn btn-ghost load-more">Mostrar mais (${list.length - shown})</button>`);
+      grid.insertAdjacentHTML("beforeend", `<button class="btn btn-ghost load-more">${t("list.more", { n: list.length - shown })}</button>`);
       grid.querySelector(".load-more").onclick = e => { e.stopPropagation(); more(); };
     }
   };
-  grid.innerHTML = list.length ? "" : `<p class="empty">Nenhuma criatura encontrada.</p>`;
+  grid.innerHTML = list.length ? "" : `<p class="empty">${t("list.empty")}</p>`;
   if (list.length) more();
 }
 

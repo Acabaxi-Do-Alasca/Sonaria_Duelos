@@ -3,37 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulador — Sonaria Duelos</title>
+  <meta name="i18n-title" content="title.sim">
+  <title>Sonaria Duelos</title>
   <script>try { const t = localStorage.getItem("sd-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body data-page="sim">
   <main class="container">
     <div class="sim-top">
-      <div><span class="kicker">Simulador</span><h1>Montar duelo</h1></div>
-      <p>Face tank: as duas criaturas paradas, mordendo até uma cair.</p>
+      <div><span class="kicker" data-i18n="nav.sim"></span><h1 data-i18n="sim.title"></h1></div>
+      <p data-i18n="sim.sub"></p>
     </div>
 
     <div class="conditions">
-      <div class="cond-group"><small>Estação</small>
+      <div class="cond-group"><small data-i18n="cond.season"></small>
         <select class="select season-sel" id="season"></select>
         <span class="hint" id="season-hint"></span>
       </div>
-      <div class="cond-group"><small>Hora</small>
-        <div class="seg" id="daynight"><button data-v="day" class="on">☀️ Dia</button><button data-v="night">🌙 Noite</button></div>
+      <div class="cond-group"><small data-i18n="cond.time"></small>
+        <div class="seg" id="daynight"><button data-v="day" class="on" data-i18n="cond.day"></button><button data-v="night" data-i18n="cond.night"></button></div>
       </div>
-      <div class="cond-group" id="env"><small>Clima</small>
-        <button class="chip" data-k="bloodMoon" title="+50% dano, +50% velocidade de mordida">Lua de Sangue</button>
-        <button class="chip" data-k="blueMoon" title="+50% regeneração, −50% dano">Lua Azul</button>
-        <button class="chip" data-k="blizzard" title="Hipotermia: −0,75% vida por tick">Nevasca</button>
-        <button class="chip" data-k="heatwave" title="−1% vida e +2 queimadura por tick">Onda de Calor</button>
+      <div class="cond-group" id="env"><small data-i18n="cond.weather"></small>
+        <button class="chip" data-k="bloodMoon" data-i18n="env.bloodMoon" data-i18n-title="env.bloodMoon.tip"></button>
+        <button class="chip" data-k="blueMoon" data-i18n="env.blueMoon" data-i18n-title="env.blueMoon.tip"></button>
+        <button class="chip" data-k="blizzard" data-i18n="env.blizzard"></button>
+        <button class="chip" data-k="heatwave" data-i18n="env.heatwave" data-i18n-title="env.heatwave.tip"></button>
       </div>
-      <div class="cond-group"><small>1ª mordida</small>
-        <div class="seg" id="first"><button data-v="auto" class="on">Mais pesado</button><button data-v="0">Âmbar</button><button data-v="1">Jade</button></div>
+      <div class="cond-group"><small data-i18n="cond.first"></small>
+        <div class="seg" id="first"><button data-v="auto" class="on" data-i18n="cond.heavier"></button><button data-v="0" data-i18n="side.aCap"></button><button data-v="1" data-i18n="side.bCap"></button></div>
       </div>
-      <button class="btn btn-ghost" id="swap" style="padding:6px 12px;font-size:13px;margin-left:auto">⇄ Trocar lados</button>
+      <button class="btn btn-ghost" id="swap" style="padding:6px 12px;font-size:13px;margin-left:auto" data-i18n="cond.swap"></button>
     </div>
 
     <div class="arena">
@@ -47,9 +48,9 @@
           <span class="na"><span id="pn0">—</span><span class="val" id="pv0">—</span></span>
           <div class="prob-bar"><i id="pb0" style="width:50%;background:var(--a)"></i><i id="pb1" style="width:50%;background:var(--b)"></i></div>
           <span class="nb"><span id="pn1">—</span><span class="val" id="pv1">—</span></span>
-          <span class="odds-label">chance de vitória em 120 simulações</span>
+          <span class="odds-label" data-i18n="dock.odds"></span>
         </div>
-        <button class="btn-fight" id="fight" disabled>Simular duelo</button>
+        <button class="btn-fight" id="fight" disabled data-i18n="dock.fight"></button>
       </div>
     </div>
 
@@ -58,7 +59,7 @@
 
   <div class="modal" id="picker">
     <div class="modal-box">
-      <div class="modal-head"><h3 id="picker-title">Escolher criatura</h3><button class="close-x" id="picker-close">✕</button></div>
+      <div class="modal-head"><h3 id="picker-title"></h3><button class="close-x" id="picker-close">✕</button></div>
       <div id="picker-filters"></div>
       <div class="creature-grid" id="picker-grid"></div>
     </div>
@@ -67,14 +68,14 @@
   <div class="modal" id="plush-picker">
     <div class="modal-box plush-box">
       <div class="modal-head">
-        <div><span class="kicker" id="pp-kicker"></span><h3>Escolher pelúcia</h3></div>
+        <div><span class="kicker" id="pp-kicker"></span><h3 data-i18n="plush.pickTitle"></h3></div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-ghost" id="pp-none" style="padding:6px 12px;font-size:13px">Tirar pelúcia</button>
+          <button class="btn btn-ghost" id="pp-none" style="padding:6px 12px;font-size:13px" data-i18n="plush.removeBtn"></button>
           <button class="close-x" id="pp-close">✕</button>
         </div>
       </div>
       <div class="pp-tools">
-        <input class="input" id="pp-q" placeholder="Buscar por nome ou efeito (ex.: peso, veneno, sopro)">
+        <input class="input" id="pp-q" data-i18n-ph="plush.search">
         <div class="pp-cats" id="pp-cats"></div>
       </div>
       <div id="pp-list"></div>
@@ -93,12 +94,19 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="js/layout.js?v=14"></script>
-  <script src="js/creatures-data.js?v=14"></script>
-  <script src="js/data.js?v=14"></script>
-  <script src="js/plushies-data.js?v=14"></script>
-  <script src="js/mechanics.js?v=14"></script>
-  <script src="js/sim.js?v=14"></script>
-  <script src="js/simulator.js?v=14"></script>
+  <script src="js/i18n.js?v=16"></script>
+  <script src="js/lang/pt-BR.js?v=16"></script>
+  <script src="js/lang/pt-PT.js?v=16"></script>
+  <script src="js/lang/en.js?v=16"></script>
+  <script src="js/lang/es.js?v=16"></script>
+  <script src="js/lang/fr.js?v=16"></script>
+  <script src="js/lang/de.js?v=16"></script>
+  <script src="js/layout.js?v=16"></script>
+  <script src="js/creatures-data.js?v=16"></script>
+  <script src="js/data.js?v=16"></script>
+  <script src="js/plushies-data.js?v=16"></script>
+  <script src="js/mechanics.js?v=16"></script>
+  <script src="js/sim.js?v=16"></script>
+  <script src="js/simulator.js?v=16"></script>
 </body>
 </html>

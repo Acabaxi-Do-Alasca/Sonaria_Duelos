@@ -64,8 +64,7 @@ const ailKey = wikiName => {
   return Object.keys(AILMENTS).find(k => AILMENTS[k].key.toLowerCase() === n) || (["drowsy", "fear", "aftershock"].includes(n) ? n : undefined);
 };
 
-const EXTRA_STATUS_PT = { drowsy: "sonolência", fear: "medo", aftershock: "Aftershock (−20% dano)", deepwounds: "Deep Wounds (sangramento não cura)" };
-const statusPt = k => AILMENTS[k]?.pt.toLowerCase() || EXTRA_STATUS_PT[k] || k;
+const statusPt = k => AILMENTS[k]?.pt.toLowerCase() || (["drowsy", "fear", "aftershock", "deepwounds"].includes(k) ? tx("status." + k) : k);
 
 const weightFactor = (attW, defW) => (1 + Math.min(attW / defW, 3)) / 2;
 
@@ -259,7 +258,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
   const negStacks = f => Object.keys(AILMENTS).reduce((s, k) => s + f.st[k], 0) + f.st.drowsy + f.st.fear;
 
   // Mordida (também usada pelo Shadow Barrage)
-  function bite(me, foe, i, { mult = 1, ailMult = 1, label = "morde", noReflect = false } = {}) {
+  function bite(me, foe, i, { mult = 1, ailMult = 1, noReflect = false } = {}) {
     let d = me.dmg * dmgMult(me) * mult * weightFactor(effWeight(me), effWeight(foe));
     let bonus = 0;
     if (me.spite && t >= me.spite.at) { bonus += me.dmg * me.spite.x * weightFactor(effWeight(me), effWeight(foe)); ailMult *= 2; me.spite = null; }
@@ -267,7 +266,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
     if (me.divCharms > 0 && t >= me.divReadyAt) { bonus += 50; me.divCharms--; applyAil(foe, "burn", 2, false); }
     if (me.expunge && foe.st.bleed > 0) {
       const extra = d * 0.05 * foe.st.bleed;
-      ev(t, i, `${me.name} usa Expunge: limpa ${foe.st.bleed.toFixed(1)} de sangramento`);
+      ev(t, i, tx("log.expunge", { a: me.name, n: fmtD(foe.st.bleed, 1) }));
       foe.st.bleed = 0; bonus += extra; heal(me, extra / 2); me.expunge = false;
     }
     if (foe.guilt) { d *= 0.5; bonus *= 0.5; }
@@ -279,7 +278,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
     if (foe.buff.reflect > 0 && !noReflect) {
       const back = Math.ceil(Math.min(d, total));
       hurt(me, back, "reflected", foe);
-      ev(t, i, `${foe.name} reflete a mordida de ${me.name}: <b>${back}</b>`);
+      ev(t, i, tx("log.reflect", { a: foe.name, b: me.name, n: `<b>${fmtN(back)}</b>` }));
       total -= back;
     }
     const done = hurt(foe, total, "biteDmg", me);
@@ -289,34 +288,34 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
     for (const a of foe.def) applyAil(me, a.type, a.stacks * ailScale(a.type, foe, me));
     if (me.serrated) foe.st.deepwounds = 10; // Serrated Teeth: 10 stacks de Deep Wounds
     if (me.lichMarked === "armed") { foe.lichMarkedBy = me; me.lichMarked = false; }
-    else if (foe.lichMarkedBy === me && me.lichType) { applyAil(foe, me.lichType, 5, false); foe.lichMarkedBy = null; ev(t, i, `Lich Mark: 5 stacks de ${statusPt(me.lichType)}`); }
+    else if (foe.lichMarkedBy === me && me.lichType) { applyAil(foe, me.lichType, 5, false); foe.lichMarkedBy = null; ev(t, i, tx("log.lich", { s: statusPt(me.lichType) })); }
     me.lastBite = done;
     me.stats.hits++;
-    ev(t, i, `${me.name} ${label} ${foe.name}: <b>${Math.round(done)}</b>`);
+    ev(t, i, tx("log.bite", { a: me.name, b: foe.name, n: `<b>${fmtN(done)}</b>` }));
     return done;
   }
 
   // Uso automático das habilidades ativas
   function useActives(me, foe, i) {
     const A = me.actives, ready = n => A[n] && t + 1e-9 >= A[n].ready;
-    const go = (n, cd, msg) => { A[n].ready = t + cd; ev(t, i, `${me.name} usa ${n}${msg ? ": " + msg : ""}`); };
+    const go = (n, cd, msg) => { A[n].ready = t + cd; ev(t, i, tx("log.uses", { a: me.name, s: n }) + (msg ? ": " + tx(msg) : "")); };
     if (ready("Harden")) { me.buff.harden = 10; go("Harden", 120); }
-    if (ready("Earthquake")) { me.st.aftershock = Math.max(me.st.aftershock, 4); go("Earthquake", 150, "Aftershock em si mesmo (−20% dano)"); }
+    if (ready("Earthquake")) { me.st.aftershock = Math.max(me.st.aftershock, 4); go("Earthquake", 150, "log.m.earthquake"); }
     if (ready("Unbridled Rage")) { me.buff.rage = 10; go("Unbridled Rage", 120); }
     if (ready("Adrenaline")) { me.buff.adrenaline = 10; go("Adrenaline", 90); }
-    if (ready("Hunters Curse") && me.hp > me.maxHp * 0.5) { me.hp -= me.maxHp * 0.5; me.buff.curse = 10; go("Hunters Curse", 120, "perde metade da vida"); }
+    if (ready("Hunters Curse") && me.hp > me.maxHp * 0.5) { me.hp -= me.maxHp * 0.5; me.buff.curse = 10; go("Hunters Curse", 120, "log.m.curse"); }
     if (ready("Life Leech") && me.hp < me.maxHp * 0.95) { me.buff.leech = 4; me.leechPct = +A["Life Leech"].arg || 0; go("Life Leech", 60); }
     if (ready("Spite") && !me.spite) { me.spite = { at: t + 5, x: +A["Spite"].arg || 0 }; go("Spite", 20); }
     if (ready("Reflect") && t + 1e-9 >= TUNE.reflectAt) { me.buff.reflect = TUNE.reflectStacks; go("Reflect", 45); }
     if (ready("Fortify") && negStacks(me) >= 5) {
       for (const k of [...Object.keys(AILMENTS), "drowsy", "fear", "aftershock", "deepwounds"]) me.st[k] = 0;
-      me.buff.fortify = 3; go("Fortify", 90, "limpa os status");
+      me.buff.fortify = 3; go("Fortify", 90, "log.m.fortify");
     }
     if (ready("Cocoon") && me.hp < me.maxHp * 0.4) { me.cocoonAt = t + 5; go("Cocoon", 120); }
-    if (me.cocoonAt && t + 1e-9 >= me.cocoonAt) { me.cocoonAt = 0; me.buff.cocooned = 2; me.cocoonHeal = me.maxHp * 0.3 / 2; ev(t, i, `${me.name} está no casulo (invulnerável)`); }
+    if (me.cocoonAt && t + 1e-9 >= me.cocoonAt) { me.cocoonAt = 0; me.buff.cocooned = 2; me.cocoonHeal = me.maxHp * 0.3 / 2; ev(t, i, tx("log.cocoon", { a: me.name })); }
     if (ready("Healing Pulse") && me.hp < me.maxHp * 0.9) { me.buff.healing = 10; go("Healing Pulse", 90); }
     if (ready("Expunge") && foe.st.bleed >= 5) { me.expunge = true; go("Expunge", 45); }
-    if (ready("Divination")) { me.divCharms = 3; me.divReadyAt = t + 15; go("Divination", 60, "canalizando 15s"); }
+    if (ready("Divination")) { me.divCharms = 3; me.divReadyAt = t + 15; go("Divination", 60, "log.m.divination"); }
     if (ready("Lich Mark")) { me.lichMarked = "armed"; me.lichType = ailKey(A["Lich Mark"].arg); go("Lich Mark", 30); }
     if (ready("Poison Area")) { applyAil(foe, "poison", 5, false); go("Poison Area", 15); }
     if (ready("Frost Nova")) { me.frostNova = 5; go("Frost Nova", 60); }
@@ -385,7 +384,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
       if (sb && t + 1e-9 >= sb.next && sb.k < sb.n) {
         sb.k++; sb.next = t + 0.5;
         const d = Math.ceil(sb.base * Math.pow(0.9, sb.k));
-        if (foe.buff.reflect > 0) { hurt(me, sb.base, "reflected", foe); ev(t, i, `Shadow Barrage refletido: <b>${Math.round(sb.base)}</b>`); }
+        if (foe.buff.reflect > 0) { hurt(me, sb.base, "reflected", foe); ev(t, i, tx("log.barrageReflected", { n: `<b>${fmtN(sb.base)}</b>` })); }
         else { hurt(foe, d, "ability", me); for (const a of me.atk) applyAil(foe, a.type, a.stacks * ailScale(a.type, me, foe)); ev(t, i, `Shadow Barrage ${sb.k}/${sb.n}: <b>${d}</b>`); }
         if (sb.k >= sb.n) me.barrage = null;
         if (dead()) break;
@@ -399,7 +398,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
           s.wf = Math.min(1, weightFactor(effWeight(me), effWeight(foe)));
           hurt(foe, foe.maxHp * 0.05 * s.wf * me.S.breathDmg, "breath", me);
           s.lanceTicks = 5; s.nextHit = t + 1; s.fireFrom = t + 60;
-          ev(t, i, `${me.name} dispara ${me.c.breath}!`);
+          ev(t, i, tx("log.fires", { a: me.name, s: me.c.breath }));
         } else if (s.lanceTicks > 0 && t + 1e-9 >= s.nextHit) {
           hurt(foe, foe.maxHp * 0.01 * s.wf * me.S.breathDmg, "breath", me);
           applyAil(foe, B.type, 1, false);
@@ -409,7 +408,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
         if (s.fireUntil <= t && t + 1e-9 >= Math.max(s.fireFrom, s.ready)) {
           s.fireUntil = t + B.cap; s.nextHit = t; s.chain = 0;
           s.ready = B.cooldown ? t + B.cooldown : s.fireUntil + B.cap * B.regen / me.S.breathRegen;
-          ev(t, i, `${me.name} usa ${me.c.breath}!`);
+          ev(t, i, tx("log.usesBreath", { a: me.name, s: me.c.breath }));
           if (B.fear && !immune(foe)) foe.st.fear = Math.max(foe.st.fear, 1);
         }
         if (t < s.fireUntil - 1e-9 && t + 1e-9 >= s.nextHit) {
@@ -437,7 +436,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
 
   if (dead()) winner = F[0].hp > 0 ? 0 : F[1].hp > 0 ? 1 : (F[0].hp >= F[1].hp ? 0 : 1);
   timeline.push({ t, hp: [Math.max(0, F[0].hp), Math.max(0, F[1].hp)] });
-  if (winner >= 0) ev(t, -1, `${F[1 - winner].name} foi derrotado!`);
+  if (winner >= 0) ev(t, -1, tx("log.defeated", { a: F[1 - winner].name }));
   return { winner, time: t, fighters: F, timeline, events, timeout: winner < 0 };
 }
 

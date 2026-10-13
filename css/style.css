@@ -395,3 +395,8 @@ canvas { width: 100%; height: 230px; display: block; border-radius: 8px; backgro
 .mbtns button { flex: 1; min-width: 34px; padding: 4px 6px; font-size: 12px; font-weight: 700; border-radius: 6px; border: 1px solid var(--border); background: var(--card-2); }
 .mbtns button:hover:not(:disabled) { border-color: var(--accent); }
 .mbtns button:disabled { opacity: .35; cursor: not-allowed; }
+
+/* Seletor de idioma */
+.lang-sel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 13px; font-weight: 600; color: var(--text); margin-left: 6px; max-width: 170px; }
+.lang-sel option { background: var(--card); color: var(--text); }
+@media (max-width: 720px) { .lang-sel { margin: 6px 0 0; max-width: none; } }
