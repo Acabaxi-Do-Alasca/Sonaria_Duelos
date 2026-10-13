@@ -255,7 +255,7 @@ function renderSlot(i) {
   const acts = c.actives.filter(a => ACTIVES[activeName(a)]);
   const others = c.actives.filter(a => !ACTIVES[activeName(a)]);
   const onCount = acts.filter(a => o.actives[activeName(a)] ?? ACTIVES[activeName(a)].def).length;
-  const argPt = a => a && (AILMENTS[ailKey(a)]?.pt.toLowerCase() || (a.toLowerCase() === "drowsy" ? "sonolência" : a));
+  const argPt = a => a && (ailKey(a) ? statusPt(ailKey(a)) : a);
   const toggleCard = ({ key, title, sub, parts, on }) => `
     <button class="ocard toggle ${on ? "sel" : ""}" data-set="${key}" data-v="${on ? 0 : 1}" data-i="${i}">
       <div class="oc-head"><b>${title}</b><span class="switch ${on ? "on" : ""}"></span></div>

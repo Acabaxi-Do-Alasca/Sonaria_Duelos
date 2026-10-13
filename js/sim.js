@@ -9,6 +9,11 @@
 // Queimadura:  vidaMax * (0.025% + 0.1% * stacks) por tick; -10% regen por stack
 // Sopro:       vidaMax do alvo * 1% * multiplicador * fator de peso, 2 acertos/s
 
+// Parâmetros calibrados contra resultados reais (a wiki não documenta esses valores com precisão):
+// - Reflect dura 1 stack (≈3s), não 2
+// - Chain dos sopros: cada ponto de "Chain" da wiki vale +0,1% por acerto acumulado (Energy Breath: 100 → +10%/acerto)
+const TUNE = { reflectStacks: 1, reflectAt: 0.1, breathWeight: true };
+
 const DT = 0.1;
 const TICK = 3;
 const REGEN_TICKS = 5;
@@ -20,14 +25,14 @@ const BREATHS = {
   "Acid Breath":      { mult: 0.5,  cap: 10, regen: 1.8,  ail: ["corrosion", 1, 0.5] },
   "Ash Breath":       { mult: 0.1,  cap: 20, regen: 1.5,  ail: ["burn", 0.2, 1] },
   "Crystal Breath":   { mult: 0.5,  cap: 10, regen: 1.8,  ail: ["bleed", 0.75, 0.5] },
-  "Energy Breath":    { mult: 0.225,cap: 8,  regen: 5,    chain: [1.0, 10] },
+  "Energy Breath":    { mult: 0.225,cap: 8,  regen: 5,    chain: [0.1, 10] },
   "Fire Breath":      { mult: 0.5,  cap: 20, regen: 1.5,  ail: ["burn", 0.75, 0.5] },
   "Green Fire Breath":{ mult: 0.5,  cap: 20, regen: 1.5,  ail: ["burn", 0.75, 0.5] },
-  "Glacier Breath":   { mult: 1,    cap: 10, regen: 4.5,  chain: [0.05, 10] },
+  "Glacier Breath":   { mult: 1,    cap: 10, regen: 4.5,  chain: [0.005, 10] },
   "Gold Breath":      { mult: 0.25, cap: 20, regen: 0.75 },
   "Haunt Breath":     { mult: 0.75, cap: 10, regen: 2.5,  ail: ["poison", 0.75, 1] },
   "Ice Breath":       { mult: 0.5,  cap: 10, regen: 3.75, ail: ["frostbite", 0.75, 0.5] },
-  "Lightning Breath": { mult: 1.5,  cap: 5,  regen: 12,   chain: [0.25, 5] },
+  "Lightning Breath": { mult: 1.5,  cap: 5,  regen: 12,   chain: [0.025, 5] },
   "Miasma Breath":    { mult: 0.25, cap: 10, regen: 2.5,  selfHeal: 0.005 },
   "Plague Breath":    { mult: 0.25, cap: 5,  regen: 2,    ail: ["disease", 1, 1] },
   "Radiation Breath": { mult: 0.5,  cap: 10, regen: 1.8,  ail: ["radiation", 0.5, 0.5] },
@@ -55,8 +60,12 @@ function lanceOf(name) {
 }
 const ailKey = wikiName => {
   const n = String(wikiName).toLowerCase();
-  return Object.keys(AILMENTS).find(k => AILMENTS[k].key.toLowerCase() === n) || (["drowsy", "fear"].includes(n) ? n : undefined);
+  if (n === "deep wounds") return "deepwounds";
+  return Object.keys(AILMENTS).find(k => AILMENTS[k].key.toLowerCase() === n) || (["drowsy", "fear", "aftershock"].includes(n) ? n : undefined);
 };
+
+const EXTRA_STATUS_PT = { drowsy: "sonolência", fear: "medo", aftershock: "Aftershock (−20% dano)", deepwounds: "Deep Wounds (sangramento não cura)" };
+const statusPt = k => AILMENTS[k]?.pt.toLowerCase() || EXTRA_STATUS_PT[k] || k;
 
 const weightFactor = (attW, defW) => (1 + Math.min(attW / defW, 3)) / 2;
 
@@ -157,7 +166,7 @@ function buildFighter(slot, env) {
     if (ACTIVES[n] && (o.actives[n] ?? ACTIVES[n].def)) actives[n] = { arg: activeArg(a), ready: 0 };
   }
   const st = Object.fromEntries(Object.keys(AILMENTS).map(k => [k, 0]));
-  Object.assign(st, { drowsy: 0, sleep: 0, fear: 0 });
+  Object.assign(st, { drowsy: 0, sleep: 0, fear: 0, aftershock: 0, deepwounds: 0 });
   return {
     c, name: c.name, S, maxHp: S.hp, hp: S.hp,
     baseWeight: S.weight, dmg: S.dmg, cd: S.cd,
@@ -171,7 +180,7 @@ function buildFighter(slot, env) {
     twoFaced: actives["Two-Faced"] ? (o.twoFaced === "madness" ? { dmg: 0.625, cd: 0.625 } : { dmg: 1.6, cd: 1.6 }) : null,
     nextBite: 0, lastBite: 0,
     br: breath ? { fireFrom: breath.lance ? 3 : (breath.delay || 0), fireUntil: 0, nextHit: 0, chain: 0, ready: 0, lanceTicks: 0 } : null,
-    st, deepWounds: false,
+    st,
     buff: { harden: 0, rage: 0, adrenaline: 0, curse: 0, leech: 0, reflect: 0, fortify: 0, cocooned: 0, cocoonRage: 0, healing: 0 },
     spite: null, barrage: null, divCharms: 0, divReadyAt: 0, lichMarked: false, frostNova: 0, totem: 0,
     stats: { minWeight: S.weight, hits: 0, biteDmg: 0, breath: 0, regen: 0, ability: 0, reflected: 0, ...Object.fromEntries(Object.keys(AILMENTS).map(k => [k, 0])) },
@@ -193,7 +202,7 @@ const immune = f => f.buff.fortify > 0 || f.buff.cocooned > 0;
 function applyAil(target, type, stacks, useBlock = true) {
   if (immune(target) || !type) return;
   if (stacks < 0) { if (type in target.st) target.st[type] = Math.max(0, target.st[type] + stacks); return; } // valor negativo cura
-  if (!(type in target.block)) { if (type in target.st) target.st[type] += stacks; return; } // drowsy, fear…
+  if (!(type in target.block)) { if (type in target.st) target.st[type] = Math.min(type === "deepwounds" ? 10 : 99, target.st[type] + stacks); return; } // drowsy, fear, aftershock, deep wounds…
   const s = stacks * (useBlock ? 1 - effBlock(target, type) : 1);
   if (s > 0) target.st[type] = Math.min(99, target.st[type] + s);
 }
@@ -208,6 +217,7 @@ function dmgMult(f) {
   if (f.buff.curse > 0) m *= 2;
   if (f.buff.cocoonRage > 0) m *= 1.15;
   if (f.st.fear > 0) m *= 0.55;
+  if (f.st.aftershock > 0) m *= 0.8; // Aftershock: −20% dano
   if (f.st.drowsy > 0) m *= Math.max(0, 1 - 0.025 * f.st.drowsy);
   if (f.twoFaced) m *= f.twoFaced.dmg;
   if (f.actives["Warden's Rage"]) {
@@ -277,9 +287,9 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
     if (me.buff.leech > 0 && done > 0) heal(me, done * me.leechPct);
     for (const a of me.atk) applyAil(foe, a.type, a.stacks * ailMult * ailScale(a.type, me, foe));
     for (const a of foe.def) applyAil(me, a.type, a.stacks * ailScale(a.type, foe, me));
-    if (me.serrated) foe.deepWounds = true;
+    if (me.serrated) foe.st.deepwounds = 10; // Serrated Teeth: 10 stacks de Deep Wounds
     if (me.lichMarked === "armed") { foe.lichMarkedBy = me; me.lichMarked = false; }
-    else if (foe.lichMarkedBy === me && me.lichType) { applyAil(foe, me.lichType, 5, false); foe.lichMarkedBy = null; ev(t, i, `Lich Mark: 5 stacks de ${AILMENTS[me.lichType]?.pt || "sonolência"}`); }
+    else if (foe.lichMarkedBy === me && me.lichType) { applyAil(foe, me.lichType, 5, false); foe.lichMarkedBy = null; ev(t, i, `Lich Mark: 5 stacks de ${statusPt(me.lichType)}`); }
     me.lastBite = done;
     me.stats.hits++;
     ev(t, i, `${me.name} ${label} ${foe.name}: <b>${Math.round(done)}</b>`);
@@ -291,15 +301,16 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
     const A = me.actives, ready = n => A[n] && t + 1e-9 >= A[n].ready;
     const go = (n, cd, msg) => { A[n].ready = t + cd; ev(t, i, `${me.name} usa ${n}${msg ? ": " + msg : ""}`); };
     if (ready("Harden")) { me.buff.harden = 10; go("Harden", 120); }
+    if (ready("Earthquake")) { me.st.aftershock = Math.max(me.st.aftershock, 4); go("Earthquake", 150, "Aftershock em si mesmo (−20% dano)"); }
     if (ready("Unbridled Rage")) { me.buff.rage = 10; go("Unbridled Rage", 120); }
     if (ready("Adrenaline")) { me.buff.adrenaline = 10; go("Adrenaline", 90); }
     if (ready("Hunters Curse") && me.hp > me.maxHp * 0.5) { me.hp -= me.maxHp * 0.5; me.buff.curse = 10; go("Hunters Curse", 120, "perde metade da vida"); }
     if (ready("Life Leech") && me.hp < me.maxHp * 0.95) { me.buff.leech = 4; me.leechPct = +A["Life Leech"].arg || 0; go("Life Leech", 60); }
     if (ready("Spite") && !me.spite) { me.spite = { at: t + 5, x: +A["Spite"].arg || 0 }; go("Spite", 20); }
-    if (ready("Reflect") && t > 0) { me.buff.reflect = 2; go("Reflect", 45); }
+    if (ready("Reflect") && t + 1e-9 >= TUNE.reflectAt) { me.buff.reflect = TUNE.reflectStacks; go("Reflect", 45); }
     if (ready("Fortify") && negStacks(me) >= 5) {
-      for (const k of [...Object.keys(AILMENTS), "drowsy", "fear"]) me.st[k] = 0;
-      me.deepWounds = false; me.buff.fortify = 3; go("Fortify", 90, "limpa os status");
+      for (const k of [...Object.keys(AILMENTS), "drowsy", "fear", "aftershock", "deepwounds"]) me.st[k] = 0;
+      me.buff.fortify = 3; go("Fortify", 90, "limpa os status");
     }
     if (ready("Cocoon") && me.hp < me.maxHp * 0.4) { me.cocoonAt = t + 5; go("Cocoon", 120); }
     if (me.cocoonAt && t + 1e-9 >= me.cocoonAt) { me.cocoonAt = 0; me.buff.cocooned = 2; me.cocoonHeal = me.maxHp * 0.3 / 2; ev(t, i, `${me.name} está no casulo (invulnerável)`); }
@@ -323,7 +334,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
         const me = F[i], src = F[1 - i], st = me.st;
         const wasCocooned = me.buff.cocooned > 0;
         for (const k of Object.keys(st)) {
-          if (k === "bleed" && me.deepWounds) continue;
+          if (k === "bleed" && st.deepwounds > 0) continue; // Deep Wounds: sangramento não diminui
           st[k] = Math.max(0, st[k] - (me.muddy && (k === "poison" || k === "bleed") ? 2 : 1)); // Lamacento cura 2×
         }
         for (const k of Object.keys(me.buff)) me.buff[k] = Math.max(0, me.buff[k] - 1);
@@ -404,7 +415,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
         if (t < s.fireUntil - 1e-9 && t + 1e-9 >= s.nextHit) {
           s.nextHit = t + 0.5;
           if (B.mult > 0) {
-            const wf = B.pure ? 1 : weightFactor(effWeight(me), effWeight(foe));
+            const wf = B.pure || !TUNE.breathWeight ? 1 : weightFactor(effWeight(me), effWeight(foe));
             const chain = B.chain ? 1 + Math.min(s.chain, B.chain[1]) * B.chain[0] : 1;
             const res = B.pure ? 1 : (1 - foe.breathRes) * (1 - foe.S.hunker);
             hurt(foe, foe.maxHp * 0.01 * B.mult * wf * chain * res * me.S.breathDmg, "breath", me);
