@@ -127,7 +127,7 @@ const activeArg = a => (/\((.*)\)$/.exec(a) || [])[1];
 // cd = recarga (s); how = quando o simulador usa; parts(arg) = efeitos exibidos
 const sec = s => `${s}s`;
 const ACTIVE_CARDS = {
-  "Harden":         { cd: 120, how: "how.start", parts: () => [fxp(fx(0.35, "weight"), true), fxp(fx(0.25, "regen"), true), fxp(sec(30), null), fxp(fx(-0.2, "speed"), false, true)] },
+  "Harden":         { cd: 120, how: "how.start", parts: () => [fxp(fx(0.65, "weight") + " ≈", true), fxp(fx(0.25, "regen"), true), fxp(sec(30), null), fxp(fx(-0.2, "speed"), false, true)] },
   "Unbridled Rage": { cd: 120, how: "how.start", parts: () => [fxp(fx(0.3, "dmg"), true), fxp(sec(30), null), fxp(t("fx.halfStamina"), false, true)] },
   "Adrenaline":     { cd: 90,  how: "how.start", parts: () => [fxp(fx(0.2, "dmg"), true), fxp(sec(30), null), fxp(fx(0.2, "speed"), true, true)] },
   "Hunters Curse":  { cd: 120, how: "how.curse", parts: () => [fxp(fx(1, "dmg"), true), fxp(sec(30), null), fxp(t("fx.loseHalfHp"), false)] },
@@ -147,7 +147,7 @@ const ACTIVE_CARDS = {
   "Frost Nova":     { cd: 60,  how: "how.always2", parts: () => [fxp(t("fx.frostNova"), true), fxp(sec(15), null)] },
   "Aura":           { cd: 0,   how: "how.always", parts: a => [fxp(t("fx.every3", { n: 3, s: a }), true)] },
   "Totem":          { cd: 120, how: "how.place", parts: a => [fxp(t("fx.every3", { n: 2, s: a }), true), fxp("2 min", null)] },
-  "Cause Fear":     { cd: 120, how: "how.start", parts: () => [fxp(t("fx.fear"), true), fxp(sec(30), null)] },
+  "Cause Fear":     { cd: 120, how: "how.start", parts: () => [fxp(t("fx.fear"), true), fxp("≈15s", null)] },
   "Earthquake":     { cd: 150, how: "how.start", parts: () => [fxp(t("fx.aftershockSelf"), false), fxp(sec(12), null), fxp(t("fx.injury40"), true, true), fxp(t("fx.stamina25"), false, true)] },
   "Drowsy Area":    { cd: 60,  how: "how.always2", parts: () => [fxp(t("fx.drowsy1"), true), fxp(t("fx.drowsy2"), true), fxp(t("fx.drowsy3"), true)] },
 };

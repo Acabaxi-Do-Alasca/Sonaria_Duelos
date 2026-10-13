@@ -346,6 +346,9 @@ function firstHitter() {
   return buildStats(a, state.env).weight >= buildStats(b, state.env).weight ? 0 : 1;
 }
 
+// 1ª mordida fixa só quando o usuário escolhe um lado; "Mais pesado" vale como padrão do card, mas a chance sorteia
+const fixedFirst = () => state.first === "auto" ? null : +state.first;
+
 function renderAll() {
   renderSlot(0); renderSlot(1);
   $("fight").disabled = !state.slots.every(s => s.creature);
@@ -364,7 +367,7 @@ function updateProbability() {
     $("pb0").style.width = $("pb1").style.width = "50%";
     return;
   }
-  const p = winProbability(state.slots, state.env);
+  const p = winProbability(state.slots, state.env, 120, { first: fixedFirst() });
   $("pv0").textContent = pct(p);
   $("pv1").textContent = pct(1 - p);
   $("pb0").style.width = p * 100 + "%";
@@ -541,7 +544,9 @@ let lastResult = null;
 function hideResult() { $("result").classList.remove("show"); }
 
 $("fight").addEventListener("click", () => {
-  lastResult = simulate(state.slots, state.env, firstHitter());
+  // Mostra a luta típica: a mediana das 120 simulações usadas na chance de vitória
+  winProbability(state.slots, state.env, 120, { first: fixedFirst() });
+  lastResult = sampleRun(state.slots, state.env, winProbability.last.medianSeed, { first: fixedFirst(), log: true });
   renderResult(lastResult);
   toast(t("toast.done"));
 });

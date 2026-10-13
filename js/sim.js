@@ -9,10 +9,20 @@
 // Queimadura:  vidaMax * (0.025% + 0.1% * stacks) por tick; -10% regen por stack
 // Sopro:       vidaMax do alvo * 1% * multiplicador * fator de peso, 2 acertos/s
 
-// Parâmetros calibrados contra resultados reais (a wiki não documenta esses valores com precisão):
+// Parâmetros calibrados contra 24 duelos reais enviados por jogadores (a wiki não documenta esses valores com precisão):
 // - Reflect dura 1 stack (≈3s), não 2
 // - Chain dos sopros: cada ponto de "Chain" da wiki vale +0,1% por acerto acumulado (Energy Breath: 100 → +10%/acerto)
-const TUNE = { reflectStacks: 1, reflectAt: 0.1, breathWeight: true };
+// - Status defensivos (Defensive Poison etc.) aplicam 2,5× os stacks e não escalam com o peso
+// - Veneno causa 1,5× o dano da fórmula da wiki
+// - Harden dá +65% de peso (wiki: +35%) — calibrado quase só com o Eldervaine, confirmar com outras criaturas
+// - Cause Fear dura 5 stacks (≈15s), não 10
+// - Nas lutas aleatórias, o tempo entre mordidas varia ±10%
+const TUNE = {
+  reflectStacks: 1, reflectAt: 0.1, breathWeight: true, selfBuffPersist: "none", defScale: false, regenMode: "split", decay: 1,
+  breathMult: 1, hardenW: 1.65, bleedBlocksRegen: true, poisonK: 1.5, bleedK: 1, defK: 2.5, burnK: 1,
+  fearMult: 0.55, fearStacks: 5, regularBreath: true,
+  jitter: 0.1, // variação de ±10% no tempo entre mordidas (latência/animação) nas lutas aleatórias
+};
 
 const DT = 0.1;
 const TICK = 3;
@@ -188,7 +198,7 @@ function buildFighter(slot, env) {
 
 const effWeight = f => {
   let w = f.baseWeight;
-  if (f.buff.harden > 0) w *= 1.35;
+  if (f.buff.harden > 0) w *= TUNE.hardenW;
   if (f.buff.fortify > 0) w *= 1.05;
   if (f.st.corrosion > 0) w *= Math.max(0.025, 1 - (0.075 + 0.01 * f.st.corrosion));
   return w;
@@ -215,7 +225,7 @@ function dmgMult(f) {
   if (f.buff.adrenaline > 0) m *= 1.2;
   if (f.buff.curse > 0) m *= 2;
   if (f.buff.cocoonRage > 0) m *= 1.15;
-  if (f.st.fear > 0) m *= 0.55;
+  if (f.st.fear > 0) m *= TUNE.fearMult;
   if (f.st.aftershock > 0) m *= 0.8; // Aftershock: −20% dano
   if (f.st.drowsy > 0) m *= Math.max(0, 1 - 0.025 * f.st.drowsy);
   if (f.twoFaced) m *= f.twoFaced.dmg;
@@ -235,14 +245,17 @@ function biteCd(f) {
 }
 
 // slots: [{creature, opts}, ...]; first: 0|1
-function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
+// rand: liga as variações reais de uma luta (usado no cálculo da chance de vitória):
+// fase do tick de 3s do servidor, pequenas variações no tempo entre mordidas e chance real dos status de sopro
+function simulate(slots, env, first, { log = true, offsets = [0, 0], rand = false, seed = 1 } = {}) {
+  const R = rand ? mulberry32(seed) : null;
   const F = slots.map(s => buildFighter(s, env));
   F[0].nextBite = offsets[0]; F[1].nextBite = offsets[1];
   const order = first === 1 ? [1, 0] : [0, 1];
   const events = [];
   const timeline = [{ t: 0, hp: [F[0].hp, F[1].hp] }];
   const ev = (t, who, text) => log && events.push({ t, who, text });
-  let t = 0, winner = -1, nextTick = TICK;
+  let t = 0, winner = -1, nextTick = rand ? Math.max(DT, Math.round(R() * TICK * 10) / 10) : TICK;
 
   const hurt = (target, amt, kind, src) => {
     if (target.buff.cocooned > 0 || amt <= 0) return 0;
@@ -285,7 +298,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
     if (foe.S.knight && done > 0) hurt(me, done * 0.25 * 0.2, "reflected", foe); // valor esperado
     if (me.buff.leech > 0 && done > 0) heal(me, done * me.leechPct);
     for (const a of me.atk) applyAil(foe, a.type, a.stacks * ailMult * ailScale(a.type, me, foe));
-    for (const a of foe.def) applyAil(me, a.type, a.stacks * ailScale(a.type, foe, me));
+    for (const a of foe.def) applyAil(me, a.type, a.stacks * TUNE.defK * (TUNE.defScale ? ailScale(a.type, foe, me) : 1));
     if (me.serrated) foe.st.deepwounds = 10; // Serrated Teeth: 10 stacks de Deep Wounds
     if (me.lichMarked === "armed") { foe.lichMarkedBy = me; me.lichMarked = false; }
     else if (foe.lichMarkedBy === me && me.lichType) { applyAil(foe, me.lichType, 5, false); foe.lichMarkedBy = null; ev(t, i, tx("log.lich", { s: statusPt(me.lichType) })); }
@@ -320,7 +333,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
     if (ready("Poison Area")) { applyAil(foe, "poison", 5, false); go("Poison Area", 15); }
     if (ready("Frost Nova")) { me.frostNova = 5; go("Frost Nova", 60); }
     if (ready("Totem")) { me.totem = 40; me.totemType = ailKey(A["Totem"].arg); go("Totem", 120); }
-    if (ready("Cause Fear")) { if (!immune(foe)) foe.st.fear = 10; go("Cause Fear", 120); }
+    if (ready("Cause Fear")) { if (!immune(foe)) foe.st.fear = TUNE.fearStacks; go("Cause Fear", 120); }
     if (ready("Drowsy Area")) { if (!immune(foe)) foe.st.drowsy += 5; go("Drowsy Area", 60); }
     if (ready("Shadow Barrage") && me.lastBite > 0) { me.barrage = { n: +A["Shadow Barrage"].arg || 0, k: 0, base: me.lastBite, next: t }; go("Shadow Barrage", 30); }
   }
@@ -334,26 +347,33 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
         const wasCocooned = me.buff.cocooned > 0;
         for (const k of Object.keys(st)) {
           if (k === "bleed" && st.deepwounds > 0) continue; // Deep Wounds: sangramento não diminui
-          st[k] = Math.max(0, st[k] - (me.muddy && (k === "poison" || k === "bleed") ? 2 : 1)); // Lamacento cura 2×
+          st[k] = Math.max(0, st[k] - (me.muddy && (k === "poison" || k === "bleed") ? 2 : 1) * (Object.keys(AILMENTS).includes(k) ? TUNE.decay : 1)); // Lamacento cura 2×
         }
-        for (const k of Object.keys(me.buff)) me.buff[k] = Math.max(0, me.buff[k] - 1);
+        for (const k of Object.keys(me.buff)) {
+          // buffs próprios parados não perdem stacks (como o Aggressive da wiki)
+          if (TUNE.selfBuffPersist === "harden" && k === "harden") continue;
+          if (TUNE.selfBuffPersist === "all" && ["harden", "rage", "adrenaline", "curse"].includes(k)) continue;
+          me.buff[k] = Math.max(0, me.buff[k] - 1);
+        }
         if (st.drowsy >= 10) { st.drowsy = 0; st.sleep = 2; }
         // status aplicados por área do oponente
         if (src.frostNova > 0) { applyAil(me, "frostbite", 3, false); src.frostNova--; }
         if (src.totem > 0) { applyAil(me, src.totemType, 2, false); src.totem--; }
         if (src.actives["Aura"]) applyAil(me, ailKey(src.actives["Aura"].arg), 3, false);
         // dano de status
-        if (st.bleed > 0) hurt(me, 2 * st.bleed, "bleed", src);
-        if (st.poison > 0) hurt(me, me.maxHp * (0.002 + 0.0005 * st.poison), "poison", src);
-        if (st.burn > 0) hurt(me, me.maxHp * (0.00025 + 0.001 * st.burn), "burn", src);
+        if (st.bleed > 0) hurt(me, 2 * st.bleed * TUNE.bleedK, "bleed", src);
+        if (st.poison > 0) hurt(me, me.maxHp * (0.002 + 0.0005 * st.poison) * TUNE.poisonK, "poison", src);
+        if (st.burn > 0) hurt(me, me.maxHp * (0.00025 + 0.001 * st.burn) * TUNE.burnK, "burn", src);
         if (st.corrosion > 0) hurt(me, me.maxHp * 0.005, "corrosion", src);
         if (st.radiation > 0) hurt(me, me.maxHp * 0.005, "radiation", src);
         if (env.heatwave && !me.volcanic && me.buff.cocooned <= 0) { me.hp -= me.maxHp * 0.01; applyAil(me, "burn", 2, false); }
         if (env.blizzard && !me.frostyImmune && me.buff.cocooned <= 0) me.hp -= me.maxHp * 0.0075;
         // regeneração
         if (me.hp > 0) {
-          if (st.bleed <= 0 && !me.actives["Warden's Rage"]) {
-            let r = me.regenTick * Math.max(0, 1 - 0.1 * st.burn) * (st.disease > 0 ? 0.75 : 1) * (me.buff.harden > 0 ? 1.25 : 1);
+          me.regenCount = (me.regenCount || 0) + 1;
+          const regenNow = TUNE.regenMode === "split" || me.regenCount % REGEN_TICKS === 0;
+          if (regenNow && (st.bleed <= 0 || !TUNE.bleedBlocksRegen) && !me.actives["Warden's Rage"]) {
+            let r = me.regenTick * (TUNE.regenMode === "split" ? 1 : REGEN_TICKS) * Math.max(0, 1 - 0.1 * st.burn) * (st.disease > 0 ? 0.75 : 1) * (me.buff.harden > 0 ? 1.25 : 1);
             heal(me, r);
           }
           if (me.buff.healing > 0) heal(me, me.maxHp * 0.07 / REGEN_TICKS);
@@ -374,7 +394,7 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
         if (me.buff.cocooned > 0 || me.st.sleep > 0) { me.nextBite = t + DT; }
         else {
           bite(me, foe, i);
-          me.nextBite += biteCd(me);
+          me.nextBite += biteCd(me) * (rand ? 1 + (R() * 2 - 1) * TUNE.jitter : 1);
           if (foe.hp <= 0) break;
         }
       }
@@ -393,6 +413,8 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
       // ---- Sopro / feixe / lança
       const B = me.breath, s = me.br;
       if (!B || !s) continue;
+      // Sopros comuns (segurar C) competem com a mordida; feixes automáticos e lanças não
+      if (!TUNE.regularBreath && !B.lance && !B.cooldown) continue;
       if (B.lance) {
         if (t + 1e-9 >= s.fireFrom) {
           s.wf = Math.min(1, weightFactor(effWeight(me), effWeight(foe)));
@@ -417,10 +439,13 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
             const wf = B.pure || !TUNE.breathWeight ? 1 : weightFactor(effWeight(me), effWeight(foe));
             const chain = B.chain ? 1 + Math.min(s.chain, B.chain[1]) * B.chain[0] : 1;
             const res = B.pure ? 1 : (1 - foe.breathRes) * (1 - foe.S.hunker);
-            hurt(foe, foe.maxHp * 0.01 * B.mult * wf * chain * res * me.S.breathDmg, "breath", me);
+            hurt(foe, foe.maxHp * 0.01 * B.mult * wf * chain * res * me.S.breathDmg * TUNE.breathMult, "breath", me);
             s.chain++;
           }
-          if (B.ail) applyAil(foe, B.ail[0], B.ail[1] * B.ail[2], false); // valor esperado (prob * stacks)
+          if (B.ail) { // simulação única: valor esperado; chance de vitória: sorteio real
+            if (!rand) applyAil(foe, B.ail[0], B.ail[1] * B.ail[2], false);
+            else if (R() < B.ail[1]) applyAil(foe, B.ail[0], B.ail[2], false);
+          }
           if (B.selfHeal) heal(me, me.maxHp * B.selfHeal);
         }
       }
@@ -440,14 +465,38 @@ function simulate(slots, env, first, { log = true, offsets = [0, 0] } = {}) {
   return { winner, time: t, fighters: F, timeline, events, timeout: winner < 0 };
 }
 
-// Chance de vitória: varia quem morde primeiro e o atraso inicial das mordidas
-function winProbability(slots, env, runs = 120) {
+// Gerador pseudoaleatório com semente (mesma semente → mesma luta, resultados reproduzíveis)
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let x = Math.imul(a ^ a >>> 15, 1 | a);
+    x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x;
+    return ((x ^ x >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Uma luta "real": quem morde primeiro (se não for fixo), atraso da 1ª mordida, fase do tick do servidor etc.
+function sampleRun(slots, env, seed, { first = null, log = false } = {}) {
+  const R = mulberry32(seed * 7919 + 13);
+  const f = first ?? (R() < 0.5 ? 0 : 1);
+  const offsets = slots.map(s => Math.round(R() * s.creature.cd * 10) / 10);
+  return simulate(slots, env, f, { log, offsets, rand: true, seed });
+}
+
+// Chance de vitória e a luta "típica" (a mediana das simulações), para o relatório bater com a chance
+function winProbability(slots, env, runs = 120, { first = null } = {}) {
   let w0 = 0;
-  for (let k = 0; k < runs; k++) {
-    const off = slots.map(s => Math.round(Math.random() * s.creature.cd * 10) / 10);
-    const r = simulate(slots, env, k % 2, { log: false, offsets: off });
+  const margins = [];
+  for (let k = 1; k <= runs; k++) {
+    const r = sampleRun(slots, env, k, { first });
     if (r.winner === 0) w0++;
     else if (r.winner < 0) w0 += 0.5;
+    const W = r.fighters[r.winner];
+    const m = r.winner < 0 ? 0 : (r.winner === 0 ? 1 : -1) * Math.max(0, W.hp) / W.maxHp;
+    margins.push({ seed: k, m });
   }
-  return w0 / runs;
+  margins.sort((a, b) => a.m - b.m);
+  const p = w0 / runs;
+  winProbability.last = { p, medianSeed: margins[Math.floor(runs / 2)].seed };
+  return p;
 }
